@@ -143,6 +143,25 @@ const emptyConviction: Conviction = {
   confinement: "",
 };
 
+// personal / people reference in the app
+type Reference = {
+  name: string;
+  title: string;
+  company: string;
+  address: string;
+  phone: string;
+  email: string;
+};
+
+const emptyReference: Reference = {
+  name: "",
+  title: "",
+  company: "",
+  address: "",
+  phone: "",
+  email: "",
+};
+
 // past job we ask in the form, allows multiple this is used in an arr/list
 type Job = {
   employerName: string;
@@ -204,13 +223,8 @@ type Answers = {
   hasCriminalRecord: string;
   convictions: Conviction[];
 
-  // Reference
-  referenceName: string;
-  referenceTitle: string;
-  referenceCompany: string;
-  referenceAddress: string;
-  referencePhone: string;
-  referenceEmail: string;
+  // References
+  references: Reference[];
 
   // Background
   hasDriversLicense: string;
@@ -270,12 +284,7 @@ const emptyAnswers: Answers = {
   hasCriminalRecord: "",
   convictions: [],
 
-  referenceName: "",
-  referenceTitle: "",
-  referenceCompany: "",
-  referenceAddress: "",
-  referencePhone: "",
-  referenceEmail: "",
+  references: [],
 
   hasDriversLicense: "",
   servedInMilitary: "",
@@ -400,6 +409,26 @@ function checkWholeNumber(value: string) {
   return "";
 }
 
+// Weekly hours, can't be more than the 168 hours in a week
+function checkWeeklyHours(value: string) {
+  const wholeNumberError = checkWholeNumber(value);
+  if (wholeNumberError !== "") {
+    return wholeNumberError;
+  }
+  if (Number(value) > 168) {
+    return "Cannot be more than 168 hours (the hours in a week).";
+  }
+  return "";
+}
+
+// For optional fields: blank is fine, but if something is typed it still has to be valid
+function checkOptional(value: string, check: (value: string) => string) {
+  if (value.trim() === "") {
+    return "";
+  }
+  return check(value);
+}
+
 function checkAtLeastOne(values: string[]) {
   if (values.length === 0) {
     return "Please choose at least one option.";
@@ -425,15 +454,14 @@ function findErrors(page: PageTitle, answers: Answers): Errors {
   }
 
   if (page === "Emergency Contact") {
-    errors.contactFirstName = checkLetters(answers.contactFirstName);
-    errors.contactLastName = checkLetters(answers.contactLastName);
-    errors.contactStreet = checkLettersAndNumbers(answers.contactStreet);
-    errors.contactCity = checkLetters(answers.contactCity);
-    errors.contactState = checkRequired(answers.contactState);
-    errors.contactZip = checkZip(answers.contactZip);
-    errors.contactPhone = checkPhone(answers.contactPhone);
-    errors.contactEmail = checkEmail(answers.contactEmail);
-    errors.contactRelationship = checkRequired(answers.contactRelationship);
+    // Every emergency contact field is optional, only checked if filled in
+    errors.contactFirstName = checkOptional(answers.contactFirstName, checkLetters);
+    errors.contactLastName = checkOptional(answers.contactLastName, checkLetters);
+    errors.contactStreet = checkOptional(answers.contactStreet, checkLettersAndNumbers);
+    errors.contactCity = checkOptional(answers.contactCity, checkLetters);
+    errors.contactZip = checkOptional(answers.contactZip, checkZip);
+    errors.contactPhone = checkOptional(answers.contactPhone, checkPhone);
+    errors.contactEmail = checkOptional(answers.contactEmail, checkEmail);
   }
 
   if (page === "Demographics") {
@@ -444,7 +472,7 @@ function findErrors(page: PageTitle, answers: Answers): Errors {
   if (page === "Availability") {
     errors.daysAvailable = checkAtLeastOne(answers.daysAvailable);
     errors.employmentType = checkAtLeastOne(answers.employmentType);
-    errors.weeklyHours = checkWholeNumber(answers.weeklyHours);
+    errors.weeklyHours = checkWeeklyHours(answers.weeklyHours);
     errors.canWorkNights = checkRequired(answers.canWorkNights);
     errors.hasBeenFired = checkRequired(answers.hasBeenFired);
     errors.hasCriminalRecord = checkRequired(answers.hasCriminalRecord);
@@ -456,12 +484,9 @@ function findErrors(page: PageTitle, answers: Answers): Errors {
   }
 
   if (page === "References") {
-    errors.referenceName = checkLetters(answers.referenceName);
-    errors.referenceTitle = checkRequired(answers.referenceTitle);
-    errors.referenceCompany = checkLettersAndNumbers(answers.referenceCompany);
-    errors.referenceAddress = checkLettersAndNumbers(answers.referenceAddress);
-    errors.referencePhone = checkPhone(answers.referencePhone);
-    errors.referenceEmail = checkEmail(answers.referenceEmail);
+    if (answers.references.length === 0) {
+      errors.references = "Please add at least one reference.";
+    }
   }
 
   if (page === "Background") {
@@ -499,6 +524,18 @@ function findConvictionErrors(conviction: Conviction) {
   errors.date = checkRequired(conviction.date);
   errors.type = checkRequired(conviction.type);
   errors.description = checkRequired(conviction.description);
+  return errors;
+}
+
+// Checks the fields inside the "Add Reference" popup
+function findReferenceErrors(reference: Reference) {
+  const errors: Partial<Record<keyof Reference, string>> = {};
+  errors.name = checkLetters(reference.name);
+  errors.title = checkRequired(reference.title);
+  errors.company = checkLettersAndNumbers(reference.company);
+  errors.address = checkLettersAndNumbers(reference.address);
+  errors.phone = checkPhone(reference.phone);
+  errors.email = checkEmail(reference.email);
   return errors;
 }
 
@@ -585,16 +622,17 @@ function TextField({ id, label, value, onChange, error, required = true, type = 
   )
 }
 
-function SelectField({ id, label, options, value, onChange, error }: {
+function SelectField({ id, label, options, value, onChange, error, required = true }: {
   id: string;
   label: string;
   options: string[];
   value: string;
   onChange: (value: string) => void;
   error?: string;
+  required?: boolean;
 }) {
   return (
-    <FieldWrapper id={id} label={label} required={true} error={error}>
+    <FieldWrapper id={id} label={label} required={required} error={error}>
       <Select value={value === "" ? null : value} onValueChange={(newValue) => onChange(newValue as string)}>
         <SelectTrigger id={id} className="w-full sm:w-70" aria-invalid={Boolean(error)}>
           <SelectValue placeholder="Select..." />
@@ -692,7 +730,9 @@ function DayPickerField({ label, value, onChange, error }: {
             aria-invalid={Boolean(error)}
             className="size-10 aria-pressed:border-primary! aria-pressed:bg-primary! aria-pressed:text-primary-foreground!"
           >
-            {day[0]}
+            {/* This could DEFINITELY just be an object dictionary but i dont feel like scrolling up and making it */}
+            {day == "Tuesday" ? "Tu" : day == "Thursday" ? "Th" : day == "Saturday" ? "Sa" : day == "Sunday" ? "Su" : day[0]}
+
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
@@ -700,7 +740,7 @@ function DayPickerField({ label, value, onChange, error }: {
   )
 }
 
-// A saved job or conviction, shown as a small card with Edit and Remove buttons
+// A saved job, reference or conviction, shown as a small card with Edit and Remove buttons
 function EntryCard({ title, details, onEdit, onRemove }: {
   title: string;
   details: string;
@@ -722,7 +762,7 @@ function EntryCard({ title, details, onEdit, onRemove }: {
 }
 
 
-// Popups for adding a conviction or a job.===They are only shown while open
+// Popups for adding a conviction, reference or a job.===They are only shown while open
 function ConvictionDialog({ startingValue, onSave, onCancel }: {
   startingValue: Conviction;
   onSave: (conviction: Conviction) => void;
@@ -784,6 +824,94 @@ function ConvictionDialog({ startingValue, onSave, onCancel }: {
             required={false}
             value={conviction.confinement}
             onChange={(value) => update("confinement", value)}
+          />
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>Cancel</Button>
+          <Button onClick={handleSave}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ReferenceDialog({ startingValue, onSave, onCancel }: {
+  startingValue: Reference;
+  onSave: (reference: Reference) => void;
+  onCancel: () => void;
+}) {
+  const [reference, setReference] = useState<Reference>(startingValue);
+  const [errors, setErrors] = useState<Partial<Record<keyof Reference, string>>>({});
+
+  function update(field: keyof Reference, value: string) {
+    setReference({ ...reference, [field]: value });
+    setErrors({ ...errors, [field]: "" });
+  }
+
+  function handleSave() {
+    const referenceErrors = findReferenceErrors(reference);
+
+    if (hasErrors(referenceErrors)) {
+      setErrors(referenceErrors);
+      return;
+    }
+
+    onSave(reference);
+  }
+
+  return (
+    <Dialog open={true} onOpenChange={(isOpen) => { if (!isOpen) onCancel(); }}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Reference</DialogTitle>
+          <DialogDescription>Enter the details of a reference.</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
+          <TextField
+            id="referenceName"
+            label="Name"
+            value={reference.name}
+            onChange={(value) => update("name", value)}
+            error={errors.name}
+          />
+          <TextField
+            id="referenceTitle"
+            label="Title"
+            value={reference.title}
+            onChange={(value) => update("title", value)}
+            error={errors.title}
+          />
+          <TextField
+            id="referenceCompany"
+            label="Company"
+            value={reference.company}
+            onChange={(value) => update("company", value)}
+            error={errors.company}
+          />
+          <TextField
+            id="referenceAddress"
+            label="Address"
+            value={reference.address}
+            onChange={(value) => update("address", value)}
+            error={errors.address}
+          />
+          <TextField
+            id="referencePhone"
+            label="Telephone"
+            inputMode="tel"
+            value={reference.phone}
+            onChange={(value) => update("phone", formatPhone(value))}
+            error={errors.phone}
+          />
+          <TextField
+            id="referenceEmail"
+            label="Email Address"
+            type="email"
+            value={reference.email}
+            onChange={(value) => update("email", value)}
+            error={errors.email}
           />
         </div>
 
@@ -1002,8 +1130,9 @@ function PersonalInformationPage({ answers, update, errors }: PageProps) {
 function EmergencyContactPage({ answers, update, errors }: PageProps) {
   return (
     <>
-      <p className="mb-4 text-sm text-muted-foreground">Person to be notified in case of emergency.</p>
+      <p className="mb-4 text-sm text-muted-foreground">Person to be notified in case of emergency. All fields are optional.</p>
       <TextField
+        required={false}
         id="contactFirstName"
         label="First Name"
         value={answers.contactFirstName}
@@ -1011,6 +1140,7 @@ function EmergencyContactPage({ answers, update, errors }: PageProps) {
         error={errors.contactFirstName}
       />
       <TextField
+        required={false}
         id="contactLastName"
         label="Last Name"
         value={answers.contactLastName}
@@ -1018,6 +1148,7 @@ function EmergencyContactPage({ answers, update, errors }: PageProps) {
         error={errors.contactLastName}
       />
       <TextField
+        required={false}
         id="contactStreet"
         label="Street"
         value={answers.contactStreet}
@@ -1025,6 +1156,7 @@ function EmergencyContactPage({ answers, update, errors }: PageProps) {
         error={errors.contactStreet}
       />
       <TextField
+        required={false}
         id="contactCity"
         label="City"
         value={answers.contactCity}
@@ -1032,6 +1164,7 @@ function EmergencyContactPage({ answers, update, errors }: PageProps) {
         error={errors.contactCity}
       />
       <SelectField
+        required={false}
         id="contactState"
         label="State"
         options={states}
@@ -1040,6 +1173,7 @@ function EmergencyContactPage({ answers, update, errors }: PageProps) {
         error={errors.contactState}
       />
       <TextField
+        required={false}
         id="contactZip"
         label="ZIP Code"
         inputMode="numeric"
@@ -1048,6 +1182,7 @@ function EmergencyContactPage({ answers, update, errors }: PageProps) {
         error={errors.contactZip}
       />
       <TextField
+        required={false}
         id="contactPhone"
         label="Phone Number"
         inputMode="tel"
@@ -1056,6 +1191,7 @@ function EmergencyContactPage({ answers, update, errors }: PageProps) {
         error={errors.contactPhone}
       />
       <TextField
+        required={false}
         id="contactEmail"
         label="Email"
         type="email"
@@ -1064,6 +1200,7 @@ function EmergencyContactPage({ answers, update, errors }: PageProps) {
         error={errors.contactEmail}
       />
       <SelectField
+        required={false}
         id="contactRelationship"
         label="Relationship to Person"
         options={relationships}
@@ -1204,52 +1341,63 @@ function AvailabilityPage({ answers, update, errors }: PageProps) {
 }
 
 function ReferencesPage({ answers, update, errors }: PageProps) {
+  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  // Which reference is being edited. null means a new one is being added.
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+  function handleAdd() {
+    setEditingIndex(null);
+    setIsDialogOpen(true);
+  }
+
+  function handleEdit(index: number) {
+    setEditingIndex(index);
+    setIsDialogOpen(true);
+  }
+
+  function handleRemove(index: number) {
+    const remaining = answers.references.filter((_, i) => i !== index);
+    update("references", remaining);
+  }
+
+  function handleSave(reference: Reference) {
+    if (editingIndex === null) {
+      update("references", [...answers.references, reference]);
+    } else {
+      const updated = [...answers.references];
+      updated[editingIndex] = reference;
+      update("references", updated);
+    }
+    setIsDialogOpen(false);
+  }
+
   return (
     <>
-      <TextField
-        id="referenceName"
-        label="Name"
-        value={answers.referenceName}
-        onChange={(value) => update("referenceName", value)}
-        error={errors.referenceName}
-      />
-      <TextField
-        id="referenceTitle"
-        label="Title"
-        value={answers.referenceTitle}
-        onChange={(value) => update("referenceTitle", value)}
-        error={errors.referenceTitle}
-      />
-      <TextField
-        id="referenceCompany"
-        label="Company"
-        value={answers.referenceCompany}
-        onChange={(value) => update("referenceCompany", value)}
-        error={errors.referenceCompany}
-      />
-      <TextField
-        id="referenceAddress"
-        label="Address"
-        value={answers.referenceAddress}
-        onChange={(value) => update("referenceAddress", value)}
-        error={errors.referenceAddress}
-      />
-      <TextField
-        id="referencePhone"
-        label="Telephone"
-        inputMode="tel"
-        value={answers.referencePhone}
-        onChange={(value) => update("referencePhone", formatPhone(value))}
-        error={errors.referencePhone}
-      />
-      <TextField
-        id="referenceEmail"
-        label="Email Address"
-        type="email"
-        value={answers.referenceEmail}
-        onChange={(value) => update("referenceEmail", value)}
-        error={errors.referenceEmail}
-      />
+      <FieldWrapper label="References" required={true} error={errors.references}>
+        <div className="grid gap-2">
+          {answers.references.map((reference, index) => (
+            <EntryCard
+              key={index}
+              title={`${reference.name}, ${reference.title}`}
+              details={reference.company}
+              onEdit={() => handleEdit(index)}
+              onRemove={() => handleRemove(index)}
+            />
+          ))}
+          <Button variant="outline" className="w-fit" onClick={handleAdd}>
+            <PlusIcon />
+            Add Reference
+          </Button>
+        </div>
+      </FieldWrapper>
+
+      {isDialogOpen && (
+        <ReferenceDialog
+          startingValue={editingIndex === null ? emptyReference : answers.references[editingIndex]}
+          onSave={handleSave}
+          onCancel={() => setIsDialogOpen(false)}
+        />
+      )}
     </>
   )
 }
@@ -1420,6 +1568,21 @@ function WorkExperiencePage({ answers, update, errors }: PageProps) {
   )
 }
 
+// acknowledgement/waiver from Sendy
+const acknowledgementParagraphs = [
+  "In return for UNFinished Business looking at my job application, I agree to the following:",
+  "I understand that turning in this application does not mean I have a job. It also does not make a job contract. If I am hired, my job will be at-will. This means that I or UNFinished Business can end my job at any time. This can happen with or without notice and with or without a reason.",
+  "I understand that company handbooks, manuals, benefit plans, rules, or other company information do not make a job contract. They also do not give me the right to keep my job. The at-will rule can only be changed by a written paper signed by the President or General Manager of UNFinished Business.",
+  "If I am hired, UNFinished Business may change its benefits, rules, or ways of doing things at any time. These changes may lower or remove some benefits.",
+  "I give UNFinished Business permission to check all the information in my application. If I give false information or leave out important facts, I may lose my job at any time without notice.",
+  "I also give UNFinished Business permission to contact my schools, past jobs, references, and other people listed in my application, unless I said not to contact them. UNFinished Business is not responsible for problems that may come from these contacts.",
+  "I understand that UNFinished Business has rules about drugs and alcohol. I may need to take a drug or alcohol test before I am hired. I may also need to take these tests after I start work. I must follow these rules to work for UNFinished Business. I may need to pass these tests to keep my job.",
+  "I may also need to pass a physical exam that is related to my job.",
+  "As part of hiring, UNFinished Business may ask a reporting company for a report about me. This report may include my credit record, character, reputation, personal traits, and way of life.",
+  "If I ask in writing, UNFinished Business will give me more details about the report and what it covers. This will be done as required by the Fair Credit Reporting Act.",
+  "If I am hired, my first 60 days will be a trial period. My job will still be at-will during and after this time. This means that I or UNFinished Business can end my job at any time for any reason.",
+];
+
 function ResumeAndSignaturePage({ answers, update, errors }: PageProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileError, setFileError] = useState<string>("");
@@ -1464,12 +1627,11 @@ function ResumeAndSignaturePage({ answers, update, errors }: PageProps) {
       </FieldWrapper>
 
       <h3 className="mt-2 font-semibold">Application Acknowledgement and Waiver</h3>
-      <p className="mb-4 text-sm text-muted-foreground">
-        I certify that the information in this application is true, sourced by you, and not incomplete.
-        I understand that intentionally false or lacking information will disqualify me or lead to be fired if found out later,
-        and I release the company and my references from any
-        liability for providing information about me during the hiring process.
-      </p>
+      <div className="mb-4 grid max-h-72 gap-3 overflow-y-auto rounded-lg border p-4 text-sm text-muted-foreground">
+        {acknowledgementParagraphs.map((paragraph, index) => (
+          <p key={index}>{paragraph}</p>
+        ))}
+      </div>
 
       <TextField
         id="signature"
@@ -1584,12 +1746,16 @@ function ReviewPage({ answers, onEditSection }: {
       </ReviewSection>
 
       <ReviewSection title="References" onEdit={() => onEditSection("References")}>
-        <ReviewRow label="Name" value={answers.referenceName} />
-        <ReviewRow label="Title" value={answers.referenceTitle} />
-        <ReviewRow label="Company" value={answers.referenceCompany} />
-        <ReviewRow label="Address" value={answers.referenceAddress} />
-        <ReviewRow label="Telephone" value={answers.referencePhone} />
-        <ReviewRow label="Email Address" value={answers.referenceEmail} />
+        {answers.references.map((reference, index) => (
+          <Fragment key={index}>
+            <ReviewRow label={`Reference ${index + 1}`} value={reference.name} />
+            <ReviewRow label="Title" value={reference.title} />
+            <ReviewRow label="Company" value={reference.company} />
+            <ReviewRow label="Address" value={reference.address} />
+            <ReviewRow label="Telephone" value={reference.phone} />
+            <ReviewRow label="Email Address" value={reference.email} />
+          </Fragment>
+        ))}
       </ReviewSection>
 
       <ReviewSection title="Background" onEdit={() => onEditSection("Background")}>
