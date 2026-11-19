@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import Layout from './layout/layout'
 import { Fragment, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
-import { FileIcon, MenuIcon, PlusIcon, SparklesIcon } from 'lucide-react';
+import { FileIcon, MenuIcon, PlusIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
