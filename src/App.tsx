@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import Layout from './layout/layout'
 import { Fragment, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
-import { MenuIcon, PlusIcon } from 'lucide-react';
+import { FileIcon, MenuIcon, PlusIcon, SparklesIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
@@ -303,6 +303,108 @@ const emptyAnswers: Answers = {
 
   resumeFileName: "",
   signature: "",
+  signatureDate: "",
+};
+
+// Ozzie Osprey, a UNF student *fake data ofc
+const sampleAnswers: Answers = {
+  firstName: "Ozzie",
+  lastName: "Osprey",
+  street: "1 UNF Drive",
+  city: "Jacksonville",
+  state: "Florida",
+  zip: "32224",
+  phone: "(904) 555-0142",
+  email: "Ozzie.Osprey@unf.edu",
+  position: "Campus Tour Guide",
+  salary: "Under 50,000",
+  isOver18: "Yes",
+
+  contactFirstName: "Olivia",
+  contactLastName: "Osprey",
+  contactStreet: "4567 St Johns Bluff Rd S",
+  contactCity: "Jacksonville",
+  contactState: "Florida",
+  contactZip: "32246",
+  contactPhone: "(904) 555-0177",
+  contactEmail: "olivia.osprey@example.com",
+  contactRelationship: "Mother",
+
+  race: ["Prefer Not To Say"],
+  gender: "Male",
+
+  daysAvailable: ["Monday", "Wednesday", "Friday", "Saturday"],
+  employmentType: ["Part-time"],
+  weeklyHours: "20",
+  canWorkNights: "Yes",
+  hasBeenFired: "No",
+  hasCriminalRecord: "Yes",
+  convictions: [
+    {
+      date: "2025-04-12",
+      type: "Misdemeanor",
+      description: "Fishing in Lake Oneida without a license (he is an osprey)",
+      confinement: "None",
+    },
+  ],
+
+  references: [
+    {
+      name: "Jordan Rivers",
+      title: "Assistant Director of Admissions",
+      company: "University of North Florida",
+      address: "1 UNF Drive, Jacksonville, FL 32224",
+      phone: "(904) 555-0101",
+      email: "jordan.rivers@unf.edu",
+    },
+    {
+      name: "Dana Marsh",
+      title: "Professor of Computing",
+      company: "UNF School of Computing",
+      address: "1 UNF Drive, Building 15, Jacksonville, FL 32224",
+      phone: "(904) 555-0115",
+      email: "dana.marsh@unf.edu",
+    },
+  ],
+
+  hasDriversLicense: "Yes",
+  servedInMilitary: "No",
+  honorableDischarge: "",
+  yearsServed: "",
+  militaryBranch: "",
+  ownsVehicle: "No",
+
+  educationLevel: "Undergraduate",
+  schoolName: "University of North Florida",
+  schoolLocation: "Jacksonville, FL",
+  graduationDate: "2027-05-01",
+  major: "Computer Science",
+
+  jobs: [
+    {
+      employerName: "Thomas G. Carpenter Library",
+      employerAddress: "1 UNF Drive, Building 12, Jacksonville, FL 32224",
+      employerPhone: "(904) 555-0112",
+      employerEmail: "library.jobs@unf.edu",
+      startDate: "2024-08-19",
+      endDate: "2025-05-02",
+      jobTitle: "Library Assistant",
+      reasonForLeaving: "Semester ended",
+    },
+    {
+      employerName: "Osprey Fountains Front Desk",
+      employerAddress: "1 UNF Drive, Building 53, Jacksonville, FL 32224",
+      employerPhone: "(904) 555-0153",
+      employerEmail: "housing.jobs@unf.edu",
+      startDate: "2025-08-18",
+      endDate: "2026-05-01",
+      jobTitle: "Desk Assistant",
+      reasonForLeaving: "Wanted to give campus tours",
+    },
+  ],
+
+  resumeFileName: "Ozzie_Osprey_Resume.pdf",
+  signature: "Ozzie Osprey",
   signatureDate: "",
 };
 
@@ -1883,6 +1985,18 @@ function App() {
     window.scrollTo(0, 0);
   }
 
+  // Set your fake data
+  function handleFillSample() {
+    // Sign with today's date (en-CA gives YYYY-MM-DD, which date inputs expect)
+    const filledAnswers = { ...sampleAnswers, signatureDate: new Date().toLocaleDateString("en-CA") };
+    const lastPage = pageTitles.length - 1;
+
+    setAnswers(filledAnswers);
+    setFurthestPage(lastPage);
+    setErrors({});
+    saveProgress({ answers: filledAnswers, currentPage, furthestPage: lastPage });
+  }
+
   function handleBack() {
     goToPage(currentPage - 1);
   }
@@ -1938,9 +2052,15 @@ function App() {
         <img src="/unf-logo.png" alt="UNF logo" className="h-14 w-auto" />
         <h1 className="text-2xl font-semibold">UNFinished Business Employee Application</h1>
       </header>
-      <p className="mt-2 text-xs text-muted-foreground">
-        *This is not affiliated with UNF and is a project for CDA 4010 UI Design.
-      </p>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          *This is not affiliated with UNF and is a project for CDA 4010 UI Design.
+        </p>
+        <Button variant="outline" size="sm" onClick={handleFillSample}>
+          <FileIcon />
+          Fill with sample data
+        </Button>
+      </div>
 
       {/*sheet menu for mobile and progress abr */}
       <div className="mt-4 flex items-center gap-3">
